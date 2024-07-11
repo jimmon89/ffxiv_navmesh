@@ -11,9 +11,7 @@ on:
 env:
   SOLUTION_NAME: vnavmesh
   INTERNAL_NAME: vnavmesh
-  RELEASE_DIR: vnavmesh\bin\Release\vnavmesh\
-  PERSONAL_PLUGIN_REPO: jimmon89/ffxiv_navmesh
-  PR_PLUGIN_REPO: jimmon89/ffxiv_navmesh
+  RELEASE_DIR: vnavmesh\bin\Release\vnavmesh
 
 jobs:
   build:
@@ -23,34 +21,26 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: recursive
+
+    - name: Get Tag Name
+      run: echo "tag=$(echo ${{ github.ref }} | sed 's/refs\/tags\/v//')" >> $GITHUB_ENV
+      
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v1.0.2
+      
     - name: Download Dalamud
       run: |
         Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile latest.zip
         Expand-Archive -Force latest.zip "$env:AppData\XIVLauncher\addon\Hooks\dev\"   
+        
     - name: Build
       run: |
-        dotnet restore -r win ${{ env.SOLUTION_NAME }}.sln
-        dotnet build --configuration Release
+        dotnet restore
+        dotnet build --configuration Release vnavmesh/vnavmesh.csproj -p:AssemblyVersion=${{ env.tag }}
       env: 
         DOTNET_CLI_TELEMETRY_OPTOUT: true
+        
     - uses: actions/upload-artifact@v2
       with:
-        name: latest
-        path: ${{ env.RELEASE_DIR }}
+        path: "vnavmesh/bin/Release/vnavmesh/latest.zip"
         if-no-files-found: error
-
-  deploy:
-    needs: build
-    if: "contains(toJSON(github.event.commits.*.message), '[PUSH]')"
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        repository: ${{ env.PERSONAL_PLUGIN_REPO }}
-        token: ${{ secrets.NAVMESH_TOKEN }}
-    - uses: actions/download-artifact@v2
-      with:
-        name: latest
-        path: plugins/${{ env.INTERNAL_NAME }}
